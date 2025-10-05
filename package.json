@@ -1,0 +1,333 @@
+{
+  "name": "ports-explorer",
+  "displayName": "Ports Explorer",
+  "description": "A VS Code extension that lists processes running on network ports (e.g., Node, Python, PHP) and lets you kill them directly from VS Code.",
+  "version": "0.0.1",
+  "publisher": "your-publisher-name",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/your-username/ports-explorer"
+  },
+  "engines": {
+    "vscode": "^1.104.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "portsExplorer",
+          "name": "Ports Explorer"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "portsExplorer.refresh",
+        "title": "Refresh Ports",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "portsExplorer.toggleView",
+        "title": "Toggle Tree/List View",
+        "icon": "$(list-tree)"
+      },
+      {
+        "command": "portsExplorer.createGroup",
+        "title": "Create New Group",
+        "icon": "$(add)"
+      },
+      {
+        "command": "portsExplorer.manageGroups",
+        "title": "Manage Groups",
+        "icon": "$(gear)"
+      },
+      {
+        "command": "portsExplorer.filterPorts",
+        "title": "Filter Ports",
+        "icon": "$(filter)"
+      },
+      {
+        "command": "portsExplorer.exportConfig",
+        "title": "Export Configuration",
+        "icon": "$(export)"
+      },
+      {
+        "command": "portsExplorer.importConfig",
+        "title": "Import Configuration",
+        "icon": "$(cloud-download)"
+      },
+      {
+        "command": "portsExplorer.showHistory",
+        "title": "Show Port History",
+        "icon": "$(history)"
+      },
+      {
+        "command": "portsExplorer.showAnalytics",
+        "title": "Show Analytics Dashboard",
+        "icon": "$(graph)"
+      },
+      {
+        "command": "portsExplorer.addToGroup",
+        "title": "Add to Group",
+        "icon": "$(tag)"
+      },
+      {
+        "command": "portsExplorer.removeFromGroup",
+        "title": "Remove from Group",
+        "icon": "$(remove)"
+      },
+      {
+        "command": "portsExplorer.killProcess",
+        "title": "Kill Process",
+        "icon": "$(close)"
+      },
+      {
+        "command": "portsExplorer.toggleFavorite",
+        "title": "Toggle Favorite",
+        "icon": "$(star)"
+      },
+      {
+        "command": "portsExplorer.openInBrowser",
+        "title": "Open in Browser",
+        "icon": "$(globe)"
+      },
+      {
+        "command": "portsExplorer.copyUrl",
+        "title": "Copy URL"
+      },
+      {
+        "command": "portsExplorer.showDetails",
+        "title": "Show Details"
+      }
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "portsExplorer.refresh",
+          "when": "view == portsExplorer",
+          "group": "navigation@1"
+        },
+        {
+          "command": "portsExplorer.toggleView",
+          "when": "view == portsExplorer",
+          "group": "navigation@2"
+        },
+        {
+          "command": "portsExplorer.filterPorts",
+          "when": "view == portsExplorer",
+          "group": "navigation@3"
+        },
+        {
+          "command": "portsExplorer.createGroup",
+          "when": "view == portsExplorer",
+          "group": "navigation@4"
+        },
+        {
+          "command": "portsExplorer.manageGroups",
+          "when": "view == portsExplorer",
+          "group": "1_manage@1"
+        },
+        {
+          "command": "portsExplorer.showHistory",
+          "when": "view == portsExplorer",
+          "group": "1_manage@2"
+        },
+        {
+          "command": "portsExplorer.showAnalytics",
+          "when": "view == portsExplorer",
+          "group": "1_manage@3"
+        },
+        {
+          "command": "portsExplorer.exportConfig",
+          "when": "view == portsExplorer",
+          "group": "2_config@1"
+        },
+        {
+          "command": "portsExplorer.importConfig",
+          "when": "view == portsExplorer",
+          "group": "2_config@2"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "portsExplorer.openInBrowser",
+          "when": "view == portsExplorer && viewItem =~ /portItem/",
+          "group": "inline@1"
+        },
+        {
+          "command": "portsExplorer.toggleFavorite",
+          "when": "view == portsExplorer && viewItem =~ /portItem/",
+          "group": "inline@2"
+        },
+        {
+          "command": "portsExplorer.killProcess",
+          "when": "view == portsExplorer && viewItem =~ /portItem/",
+          "group": "inline@3"
+        },
+        {
+          "command": "portsExplorer.addToGroup",
+          "when": "view == portsExplorer && viewItem =~ /portItem/",
+          "group": "1_groups@1"
+        },
+        {
+          "command": "portsExplorer.removeFromGroup",
+          "when": "view == portsExplorer && viewItem =~ /portItem/",
+          "group": "1_groups@2"
+        },
+        {
+          "command": "portsExplorer.copyUrl",
+          "when": "view == portsExplorer && viewItem =~ /portItem/",
+          "group": "2_actions@1"
+        },
+        {
+          "command": "portsExplorer.showDetails",
+          "when": "view == portsExplorer && viewItem =~ /portItem/",
+          "group": "2_actions@2"
+        }
+      ]
+    },
+    "configuration": {
+      "type": "object",
+      "title": "Ports Explorer",
+      "properties": {
+        "portsExplorer.groupBy": {
+          "type": "string",
+          "enum": [
+            "port",
+            "process",
+            "group",
+            "category",
+            "workspace"
+          ],
+          "default": "category",
+          "description": "How to group ports in the tree view (by port, process, custom groups, category, or workspace)."
+        },
+        "portsExplorer.groups": {
+          "type": "object",
+          "default": {
+            "Frontend": [
+              3000,
+              5173,
+              4200
+            ],
+            "Backend": [
+              5000,
+              8000
+            ],
+            "Other": [
+              8080,
+              9090
+            ]
+          },
+          "description": "Custom groups of ports for organizing the tree view."
+        },
+        "portsExplorer.autoRefresh": {
+          "type": "integer",
+          "default": 0,
+          "description": "Auto-refresh interval in seconds (0 disables auto-refresh)."
+        },
+        "portsExplorer.showOnlyWorkspace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Show only processes that belong to the current workspace (by matching command line paths)."
+        },
+        "portsExplorer.workspacePaths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "default": [],
+          "description": "Additional paths to match processes against when filtering by workspace."
+        },
+        "portsExplorer.portLabels": {
+          "type": "object",
+          "default": {},
+          "description": "Custom labels for specific ports (e.g., {\"3000\": \"My React App\", \"8080\": \"API Server\"})."
+        },
+        "portsExplorer.showSystemProcesses": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show system processes in addition to development servers."
+        },
+        "portsExplorer.strictWorkspace": {
+          "type": "boolean",
+          "default": false,
+          "description": "Only categorize processes as 'dev' if they have workspace ties (stricter filtering)."
+        },
+        "portsExplorer.viewMode": {
+          "type": "string",
+          "enum": [
+            "tree",
+            "list"
+          ],
+          "default": "tree",
+          "description": "Display mode for the ports view (tree with categories or flat list)."
+        },
+        "portsExplorer.enableHistory": {
+          "type": "boolean",
+          "default": true,
+          "description": "Track port usage history for analytics and monitoring."
+        },
+        "portsExplorer.historyLimit": {
+          "type": "integer",
+          "default": 1000,
+          "description": "Maximum number of historical port entries to keep."
+        },
+        "portsExplorer.showPortStatus": {
+          "type": "boolean",
+          "default": true,
+          "description": "Show additional status indicators (new, changed, offline)."
+        },
+        "portsExplorer.filterMode": {
+          "type": "string",
+          "enum": [
+            "none",
+            "favorites",
+            "dev",
+            "workspace"
+          ],
+          "default": "none",
+          "description": "Default filter to apply when viewing ports."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "pnpm run package",
+    "compile": "pnpm run check-types && pnpm run lint && node esbuild.js",
+    "watch": "npm-run-all -p watch:*",
+    "watch:esbuild": "node esbuild.js --watch",
+    "watch:tsc": "tsc --noEmit --watch --project tsconfig.json",
+    "package": "pnpm run check-types && pnpm run lint && node esbuild.js --production",
+    "compile-tests": "tsc -p . --outDir out",
+    "watch-tests": "tsc -p . -w --outDir out",
+    "pretest": "pnpm run compile-tests && pnpm run compile && pnpm run lint",
+    "check-types": "tsc --noEmit",
+    "lint": "eslint src",
+    "test": "vscode-test"
+  },
+  "devDependencies": {
+    "@types/mocha": "^10.0.10",
+    "@types/node": "22.x",
+    "@types/node-netstat": "^1.8.4",
+    "@types/vscode": "^1.104.0",
+    "@typescript-eslint/eslint-plugin": "^8.45.0",
+    "@typescript-eslint/parser": "^8.45.0",
+    "@vscode/test-cli": "^0.0.11",
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.6.2",
+    "esbuild": "^0.25.10",
+    "eslint": "^9.36.0",
+    "npm-run-all": "^4.1.5",
+    "typescript": "^5.9.3"
+  },
+  "dependencies": {
+    "node-netstat": "^1.9.0",
+    "systeminformation": "^5.23.0"
+  }
+}
