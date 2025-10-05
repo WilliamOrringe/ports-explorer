@@ -1,14 +1,43 @@
+# Development files
 .vscode/**
 .vscode-test/**
+.vscode-test.*
+.claude/**
 out/**
-node_modules/**
 src/**
+node_modules/**
+
+# Config files
 .gitignore
+.gitattributes
 .yarnrc
+.editorconfig
+.eslintrc*
+.prettierrc*
+eslint.config.mjs
+tsconfig.json
 esbuild.js
-vsc-extension-quickstart.md
-**/tsconfig.json
-**/eslint.config.mjs
-**/*.map
+pnpm-lock.yaml
+pnpm-workspace.yaml
+
+# Source files
 **/*.ts
-**/.vscode-test.*
+**/*.map
+**/*.test.ts
+
+# Documentation for development only
+vsc-extension-quickstart.md
+TESTS.md
+
+# Build artifacts
+*.vsix
+
+# IDE
+*.code-workspace
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

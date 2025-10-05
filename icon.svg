@@ -1,0 +1,29 @@
+<svg width="128" height="128" viewBox="0 0 128 128" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background circle -->
+  <circle cx="64" cy="64" r="60" fill="#007ACC" stroke="#005A9E" stroke-width="2"/>
+
+  <!-- Network nodes (ports) -->
+  <circle cx="35" cy="45" r="8" fill="#FFFFFF" opacity="0.9"/>
+  <circle cx="93" cy="45" r="8" fill="#FFFFFF" opacity="0.9"/>
+  <circle cx="64" cy="83" r="8" fill="#FFFFFF" opacity="0.9"/>
+
+  <!-- Central hub (server/computer) -->
+  <rect x="52" y="52" width="24" height="20" rx="2" fill="#FFFFFF"/>
+  <rect x="54" y="54" width="20" height="16" rx="1" fill="#007ACC"/>
+  <line x1="58" y1="57" x2="70" y2="57" stroke="#FFFFFF" stroke-width="1.5"/>
+  <line x1="58" y1="61" x2="70" y2="61" stroke="#FFFFFF" stroke-width="1.5"/>
+  <line x1="58" y1="65" x2="70" y2="65" stroke="#FFFFFF" stroke-width="1.5"/>
+
+  <!-- Connection lines -->
+  <line x1="35" y1="45" x2="52" y2="60" stroke="#FFFFFF" stroke-width="2" opacity="0.8"/>
+  <line x1="93" y1="45" x2="76" y2="60" stroke="#FFFFFF" stroke-width="2" opacity="0.8"/>
+  <line x1="64" y1="83" x2="64" y2="72" stroke="#FFFFFF" stroke-width="2" opacity="0.8"/>
+
+  <!-- Port numbers (small) -->
+  <text x="35" y="32" font-family="Arial, sans-serif" font-size="10" fill="#FFFFFF" text-anchor="middle" font-weight="bold">3000</text>
+  <text x="93" y="32" font-family="Arial, sans-serif" font-size="10" fill="#FFFFFF" text-anchor="middle" font-weight="bold">5000</text>
+  <text x="64" y="100" font-family="Arial, sans-serif" font-size="10" fill="#FFFFFF" text-anchor="middle" font-weight="bold">8080</text>
+
+  <!-- Activity indicator (pulse) -->
+  <circle cx="93" cy="45" r="4" fill="#4EC9B0" opacity="0.6"/>
+</svg>
