@@ -4,6 +4,10 @@ import netstat from "node-netstat";
 import * as si from "systeminformation";
 import * as path from "path";
 import * as fs from "fs";
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
 
 type GroupByOption = "port" | "process" | "group" | "category" | "workspace";
 type PortCategory = "favorites" | "dev" | "system";
@@ -490,10 +494,17 @@ export class PortProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
   private setupAutoRefresh() {
     if (this.autoRefreshTimer) {
       clearInterval(this.autoRefreshTimer);
+      this.autoRefreshTimer = undefined;
     }
     const seconds = getConfig<number>("autoRefresh", 0);
     if (seconds > 0) {
-      this.autoRefreshTimer = setInterval(() => this.refresh(), seconds * 1000);
+      console.log(`[Ports Explorer] Setting up auto-refresh every ${seconds} seconds`);
+      this.autoRefreshTimer = setInterval(() => {
+        console.log("[Ports Explorer] Auto-refreshing...");
+        this.refresh();
+      }, seconds * 1000);
+    } else {
+      console.log("[Ports Explorer] Auto-refresh disabled");
     }
   }
 
@@ -867,6 +878,70 @@ export class PortProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
     } catch (e) {
       console.warn("[Ports Explorer] detectProject error", e);
       return undefined;
+    }
+  }
+}
+
+/* -------------------------
+   Kill Process Helper
+   ------------------------- */
+async function killProcessHelper(pid: number, processName: string, cmdline: string): Promise<void> {
+  // Check if this is a WSL process
+  const isWSL = cmdline.toLowerCase().includes('wsl') ||
+                processName.toLowerCase().includes('wsl') ||
+                cmdline.includes('/mnt/');
+
+  if (isWSL) {
+    // Try to kill using WSL command
+    try {
+      // First try to find the actual WSL process
+      console.log(`[Ports Explorer] Detected WSL process, attempting WSL kill for PID ${pid}`);
+
+      // Try killing via taskkill on Windows (for WSL wrapper processes)
+      try {
+        await execAsync(`taskkill /F /PID ${pid}`);
+        console.log(`[Ports Explorer] Killed WSL process via taskkill`);
+        return;
+      } catch (taskKillErr) {
+        console.log(`[Ports Explorer] taskkill failed, trying wsl kill: ${taskKillErr}`);
+      }
+
+      // If that fails, try to kill the process inside WSL
+      // This requires finding the WSL PID, which is different from Windows PID
+      try {
+        // Try to extract port from cmdline and kill by port
+        const portMatch = cmdline.match(/:(\d+)/);
+        if (portMatch) {
+          const port = portMatch[1];
+          await execAsync(`wsl -e bash -c "kill -9 $(lsof -t -i:${port}) 2>/dev/null || true"`);
+          console.log(`[Ports Explorer] Killed WSL process on port ${port}`);
+          return;
+        }
+      } catch (wslKillErr) {
+        console.log(`[Ports Explorer] WSL kill by port failed: ${wslKillErr}`);
+      }
+
+      throw new Error("All WSL kill methods failed");
+    } catch (err: any) {
+      throw new Error(`Failed to kill WSL process: ${err.message}`);
+    }
+  } else {
+    // Regular Windows process
+    try {
+      process.kill(pid);
+      console.log(`[Ports Explorer] Killed Windows process PID ${pid}`);
+    } catch (err: any) {
+      // If standard kill fails, try taskkill
+      if (err.code === 'EPERM' || err.code === 'ESRCH') {
+        try {
+          await execAsync(`taskkill /F /PID ${pid}`);
+          console.log(`[Ports Explorer] Killed Windows process via taskkill`);
+        } catch (taskKillErr: any) {
+          throw new Error(`Failed to kill process: ${taskKillErr.message || err.message}`);
+        }
+      } else {
+        throw err;
+      }
     }
   }
 }
@@ -1285,19 +1360,20 @@ ${analytics.recentActivity
 
     vscode.commands.registerCommand(
       "portsExplorer.killProcess",
-      (item: PortItem) => {
+      async (item: PortItem) => {
         if (!item || !item.data || !item.data.pid) {
           return;
         }
         try {
-          process.kill(item.data.pid);
+          await killProcessHelper(item.data.pid, item.data.process, item.data.cmdline);
           vscode.window.showInformationMessage(
-            `Killed ${item.data.process} (PID ${item.data.pid})`
+            `Killed ${item.data.process} (PID ${item.data.pid}) on port ${item.data.port}`
           );
-          provider.refresh();
+          // Refresh after a short delay to allow process to terminate
+          setTimeout(() => provider.refresh(), 500);
         } catch (err: any) {
           vscode.window.showErrorMessage(
-            `Failed to kill: ${err?.message || err}`
+            `Failed to kill process on port ${item.data.port}: ${err?.message || err}`
           );
         }
       }

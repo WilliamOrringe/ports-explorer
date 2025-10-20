@@ -229,7 +229,7 @@
         },
         "portsExplorer.autoRefresh": {
           "type": "integer",
-          "default": 0,
+          "default": 5,
           "description": "Auto-refresh interval in seconds (0 disables auto-refresh)."
         },
         "portsExplorer.showOnlyWorkspace": {
