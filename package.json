@@ -2,7 +2,7 @@
   "name": "ports-explorer",
   "displayName": "Ports Explorer",
   "description": "Monitor and manage network ports effortlessly. View all listening processes, organize by workspace/groups, kill stuck processes, and open services in browser—all from VS Code's Explorer panel.",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "publisher": "WillOrringe",
   "icon": "icon.png",
   "repository": {
