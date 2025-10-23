@@ -726,6 +726,9 @@ export class PortProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
         }
       }
 
+      // Try to detect WSL ports as well
+      await this.loadWSLPorts();
+
       if (this.ports.length === 0) {
         console.log(
           "[Ports Explorer] No ports from systeminformation, trying netstat fallback"
@@ -750,6 +753,98 @@ export class PortProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
         );
       }
       this._onDidChangeTreeData.fire();
+    }
+  }
+
+  private async loadWSLPorts(): Promise<void> {
+    try {
+      // Check if WSL is available
+      const { stdout } = await execAsync("wsl -l -q 2>&1");
+      if (!stdout || stdout.trim().length === 0) {
+        console.log("[Ports Explorer] WSL not available, skipping WSL port scan");
+        return;
+      }
+
+      console.log("[Ports Explorer] Scanning WSL ports...");
+
+      // Use ss command which is more reliable than netstat in WSL
+      // ss -tlnp shows TCP listening ports with process info
+      const { stdout: portsOutput } = await execAsync(
+        'wsl -e bash -c "ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null || true"'
+      );
+
+      if (!portsOutput) {
+        console.log("[Ports Explorer] No WSL ports found");
+        return;
+      }
+
+      const lines = portsOutput.split('\n');
+      const seen = new Set<string>();
+
+      for (const line of lines) {
+        // Parse ss output: State Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+        // Example: LISTEN 0 128 0.0.0.0:3000 0.0.0.0:* users:(("node",pid=1234,fd=20))
+        const ssMatch = line.match(/LISTEN\s+\S+\s+\S+\s+\S+:(\d+)\s+.*users:\(\("([^"]+)",pid=(\d+)/);
+        // Also parse netstat output: tcp 0 0 0.0.0.0:3000 0.0.0.0:* LISTEN 1234/node
+        const netstatMatch = line.match(/tcp\s+\S+\s+\S+\s+\S+:(\d+)\s+\S+\s+LISTEN\s+(\d+)\/(\S+)/);
+
+        let port: number | null = null;
+        let pid: number = 0;
+        let processName = "Unknown";
+
+        if (ssMatch) {
+          port = Number(ssMatch[1]);
+          processName = ssMatch[2];
+          pid = Number(ssMatch[3]);
+        } else if (netstatMatch) {
+          port = Number(netstatMatch[1]);
+          pid = Number(netstatMatch[2]);
+          processName = netstatMatch[3];
+        }
+
+        if (!port) {
+          continue;
+        }
+
+        const key = `${port}-${pid}`;
+        // Check if we already have this port from Windows side
+        if (seen.has(key) || this.ports.some(p => p.port === port)) {
+          continue;
+        }
+        seen.add(key);
+
+        // Get more process info from WSL
+        let cmdline = "";
+        try {
+          const { stdout: cmdOutput } = await execAsync(
+            `wsl -e bash -c "ps -p ${pid} -o args= 2>/dev/null || true"`
+          );
+          cmdline = cmdOutput.trim();
+        } catch (err) {
+          console.log(`[Ports Explorer] Failed to get cmdline for WSL PID ${pid}`);
+        }
+
+        const category = this.categorizePort(port, processName, cmdline);
+        const isFav = this.favorites.has(port);
+
+        const portData: PortData = {
+          port,
+          pid,
+          process: `${processName} (WSL)`,
+          cmdline: cmdline || `WSL process on port ${port}`,
+          category,
+          isFavorite: isFav,
+        };
+
+        if (category === "dev") {
+          portData.project = await this.detectProject(cmdline);
+        }
+        portData.workspaceFolder = this.extractWorkingDirectory(cmdline);
+        this.ports.push(portData);
+        console.log(`[Ports Explorer] Found WSL port: ${port} (${processName})`);
+      }
+    } catch (err) {
+      console.log("[Ports Explorer] WSL port scanning failed:", err);
     }
   }
 
@@ -885,7 +980,7 @@ export class PortProvider implements vscode.TreeDataProvider<vscode.TreeItem> {
 /* -------------------------
    Kill Process Helper
    ------------------------- */
-async function killProcessHelper(pid: number, processName: string, cmdline: string): Promise<void> {
+async function killProcessHelper(pid: number, processName: string, cmdline: string, port?: number): Promise<void> {
   // Check if this is a WSL process
   const isWSL = cmdline.toLowerCase().includes('wsl') ||
                 processName.toLowerCase().includes('wsl') ||
@@ -894,8 +989,28 @@ async function killProcessHelper(pid: number, processName: string, cmdline: stri
   if (isWSL) {
     // Try to kill using WSL command
     try {
-      // First try to find the actual WSL process
-      console.log(`[Ports Explorer] Detected WSL process, attempting WSL kill for PID ${pid}`);
+      console.log(`[Ports Explorer] Detected WSL process, attempting WSL kill for PID ${pid}, port ${port}`);
+
+      // If we have a port, use fuser which is more reliable in WSL
+      if (port) {
+        try {
+          // Use fuser -k to kill process using the port
+          await execAsync(`wsl -e bash -c "fuser -k ${port}/tcp 2>/dev/null || true"`);
+          console.log(`[Ports Explorer] Killed WSL process on port ${port} using fuser`);
+          return;
+        } catch (fuserErr) {
+          console.log(`[Ports Explorer] fuser failed, trying lsof fallback: ${fuserErr}`);
+
+          // Fallback to lsof if fuser is not available
+          try {
+            await execAsync(`wsl -e bash -c "kill -9 \\$(lsof -t -i:${port} 2>/dev/null) 2>/dev/null || true"`);
+            console.log(`[Ports Explorer] Killed WSL process on port ${port} using lsof`);
+            return;
+          } catch (lsofErr) {
+            console.log(`[Ports Explorer] lsof also failed: ${lsofErr}`);
+          }
+        }
+      }
 
       // Try killing via taskkill on Windows (for WSL wrapper processes)
       try {
@@ -903,22 +1018,7 @@ async function killProcessHelper(pid: number, processName: string, cmdline: stri
         console.log(`[Ports Explorer] Killed WSL process via taskkill`);
         return;
       } catch (taskKillErr) {
-        console.log(`[Ports Explorer] taskkill failed, trying wsl kill: ${taskKillErr}`);
-      }
-
-      // If that fails, try to kill the process inside WSL
-      // This requires finding the WSL PID, which is different from Windows PID
-      try {
-        // Try to extract port from cmdline and kill by port
-        const portMatch = cmdline.match(/:(\d+)/);
-        if (portMatch) {
-          const port = portMatch[1];
-          await execAsync(`wsl -e bash -c "kill -9 $(lsof -t -i:${port}) 2>/dev/null || true"`);
-          console.log(`[Ports Explorer] Killed WSL process on port ${port}`);
-          return;
-        }
-      } catch (wslKillErr) {
-        console.log(`[Ports Explorer] WSL kill by port failed: ${wslKillErr}`);
+        console.log(`[Ports Explorer] taskkill failed: ${taskKillErr}`);
       }
 
       throw new Error("All WSL kill methods failed");
@@ -971,7 +1071,7 @@ export function activate(context: vscode.ExtensionContext) {
     // Filtering
     vscode.commands.registerCommand("portsExplorer.filterPorts", async () => {
       const options = [
-        { label: "$(clear-all) No Filter", value: "none" },
+        { label: "$(x) No Filter", value: "none" },
         { label: "$(star) Favorites Only", value: "favorites" },
         { label: "$(code) Dev Servers Only", value: "dev" },
         { label: "$(folder) Workspace Only", value: "workspace" },
@@ -1365,7 +1465,7 @@ ${analytics.recentActivity
           return;
         }
         try {
-          await killProcessHelper(item.data.pid, item.data.process, item.data.cmdline);
+          await killProcessHelper(item.data.pid, item.data.process, item.data.cmdline, item.data.port);
           vscode.window.showInformationMessage(
             `Killed ${item.data.process} (PID ${item.data.pid}) on port ${item.data.port}`
           );
